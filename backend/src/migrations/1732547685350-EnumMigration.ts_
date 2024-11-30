@@ -1,0 +1,76 @@
+import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class UpdateEnumSchema20241125000000 implements MigrationInterface {
+    name = 'UpdateEnumSchema20241125000000'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        // Create enums if they don't exist
+        await queryRunner.query(`
+            DO $$
+            BEGIN
+                -- Deal Type Enum
+                IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'deal_type_enum') THEN
+                    ALTER TYPE "deal_type_enum" RENAME TO "deal_type_enum_old";
+                END IF;
+                CREATE TYPE "deal_type_enum" AS ENUM ('Full Sale', 'Lease', 'Partnership', 'Breeding', 'Training');
+                
+                -- Deal Stage Enum
+                IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'deal_stage_enum') THEN
+                    ALTER TYPE "deal_stage_enum" RENAME TO "deal_stage_enum_old";
+                END IF;
+                CREATE TYPE "deal_stage_enum" AS ENUM ('Initiation', 'Discussion', 'Evaluation', 'Documentation', 'Closing', 'Complete');
+                
+                -- Deal Status Enum
+                IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'deal_status_enum') THEN
+                    ALTER TYPE "deal_status_enum" RENAME TO "deal_status_enum_old";
+                END IF;
+                CREATE TYPE "deal_status_enum" AS ENUM ('Active', 'Pending', 'On Hold', 'Cancelled', 'Completed', 'Inactive');
+                
+                -- Horse Gender Enum
+                IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'horse_gender_enum') THEN
+                    ALTER TYPE "horse_gender_enum" RENAME TO "horse_gender_enum_old";
+                END IF;
+                CREATE TYPE "horse_gender_enum" AS ENUM ('mare', 'stallion', 'gelding');
+                
+                -- Discipline Level Enum
+                IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'discipline_level_enum') THEN
+                    ALTER TYPE "discipline_level_enum" RENAME TO "discipline_level_enum_old";
+                END IF;
+                CREATE TYPE "discipline_level_enum" AS ENUM ('beginner', 'novice', 'intermediate', 'advanced', 'professional');
+                
+                -- Verification Status Enum
+                IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'verification_status_enum') THEN
+                    ALTER TYPE "verification_status_enum" RENAME TO "verification_status_enum_old";
+                END IF;
+                CREATE TYPE "verification_status_enum" AS ENUM ('pending', 'verified');
+
+                -- Update column types if tables exist
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'deals') THEN
+                    ALTER TABLE "deals" 
+                        ALTER COLUMN "type" TYPE deal_type_enum USING "type"::text::deal_type_enum,
+                        ALTER COLUMN "stage" TYPE deal_stage_enum USING "stage"::text::deal_stage_enum,
+                        ALTER COLUMN "status" TYPE deal_status_enum USING "status"::text::deal_status_enum;
+                END IF;
+
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users') THEN
+                    ALTER TABLE "users" 
+                        ALTER COLUMN "verificationStatus" TYPE verification_status_enum 
+                        USING "verificationStatus"::text::verification_status_enum;
+                END IF;
+
+                -- Drop old enum types
+                DROP TYPE IF EXISTS "deal_type_enum_old";
+                DROP TYPE IF EXISTS "deal_stage_enum_old";
+                DROP TYPE IF EXISTS "deal_status_enum_old";
+                DROP TYPE IF EXISTS "horse_gender_enum_old";
+                DROP TYPE IF EXISTS "discipline_level_enum_old";
+                DROP TYPE IF EXISTS "verification_status_enum_old";
+            END $$;
+        `);
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        // No destructive operations in down migration
+        await queryRunner.query(`SELECT 1;`);
+    }
+}

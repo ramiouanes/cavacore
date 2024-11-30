@@ -1,20 +1,22 @@
-import { Entity, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn } from 'typeorm';
 import { Horse } from './horse.entity';
-import { User } from './user.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 
 @Entity('horse_views')
-export class HorseView {
+export class HorseViewEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => Horse)
-  @JoinColumn({ name: 'horse_id' })
-  horse: Horse;
+  horse!: Horse;
 
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  @ManyToOne(() => UserEntity)
+  user!: UserEntity;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  constructor(partial: Partial<HorseViewEntity> = {}) {
+    Object.assign(this, partial);
+  }
 }

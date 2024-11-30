@@ -23,20 +23,25 @@ export class EmailService {
     firstName: string,
     token: string,
   ): Promise<void> {
-    const verificationUrl = `${this.configService.get(
-      'app.frontend.url',
-    )}/verify-email?token=${token}`;
 
-    await this.transporter.sendMail({
-      to: email,
-      subject: 'Verify your Hiplando account',
-      html: `
-        <h1>Welcome to Hiplando, ${firstName}!</h1>
-        <p>Please verify your email address by clicking the link below:</p>
-        <a href="${verificationUrl}">Verify Email</a>
-        <p>If you didn't create this account, you can safely ignore this email.</p>
-      `,
-    });
+    if (this.configService.get('NODE_ENV') === 'production') {
+      const verificationUrl = `${this.configService.get(
+        'app.frontend.url',
+      )}/verify-email?token=${token}`;
+  
+      await this.transporter.sendMail({
+        to: email,
+        subject: 'Verify your Cavacore account',
+        html: `
+          <h1>Welcome to Cavacore, ${firstName}!</h1>
+          <p>Please verify your email address by clicking the link below:</p>
+          <a href="${verificationUrl}">Verify Email</a>
+          <p>If you didn't create this account, you can safely ignore this email.</p>
+        `,
+      });
+    } else {
+      console.log(`[DEV MODE] Welcome email would be sent to ${email}`);
+    }
   }
 
   async sendPasswordResetEmail(
@@ -50,7 +55,7 @@ export class EmailService {
 
     await this.transporter.sendMail({
       to: email,
-      subject: 'Reset your Hiplando password',
+      subject: 'Reset your Cavacore password',
       html: `
         <h1>Hello ${firstName},</h1>
         <p>You requested to reset your password. Click the link below to proceed:</p>

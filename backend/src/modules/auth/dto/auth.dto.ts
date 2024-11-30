@@ -1,18 +1,25 @@
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class RegisterDto {
   @IsEmail()
-  email: string;
+  @Transform(({ value }) => value.toLowerCase())
+  email!: string;
 
   @IsString()
   @MinLength(8)
-  password: string;
+  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+    message: 'Password must contain uppercase, lowercase, number/special character'
+  })
+  password!: string;
 
   @IsString()
-  firstName: string;
+  @MinLength(2)
+  firstName!: string;
 
   @IsString()
-  lastName: string;
+  @MinLength(2)
+  lastName!: string;
 
   @IsOptional()
   @IsString()
@@ -21,31 +28,39 @@ export class RegisterDto {
 
 export class LoginDto {
   @IsEmail()
-  email: string;
+  @Transform(({ value }) => value.toLowerCase())
+  email!: string;
 
   @IsString()
-  password: string;
+  password!: string;
 }
 
 export class ForgotPasswordDto {
   @IsEmail()
-  email: string;
+  @Transform(({ value }) => value.toLowerCase())
+  email!: string;
 }
 
 export class ResetPasswordDto {
   @IsString()
-  token: string;
+  token!: string;
 
   @IsString()
   @MinLength(8)
-  newPassword: string;
+  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+    message: 'Password must contain uppercase, lowercase, number/special character'
+  })
+  password!: string;
 }
 
 export class ChangePasswordDto {
   @IsString()
-  currentPassword: string;
+  currentPassword!: string;
 
   @IsString()
   @MinLength(8)
-  newPassword: string;
+  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+    message: 'Password must contain uppercase, lowercase, number/special character'
+  })
+  newPassword!: string;
 }

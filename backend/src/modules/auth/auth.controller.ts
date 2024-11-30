@@ -18,42 +18,56 @@ import {
   ChangePasswordDto
 } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { Roles } from './decorators/public.decorator';
+import { Request as ExpressRequest } from 'express';
 import { Public } from './decorators/public.decorator';
-import { RolesGuard } from './guards/roles.guard';
-import { Roles, UserRole } from './decorators/roles.decorator';
+import {  
+  UnauthorizedException
+} from '@nestjs/common';
+
+interface RequestWithUser extends ExpressRequest {
+  user: { id: string; email: string; role: string };
+}
 
 @Controller('auth')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Public()
-  @Post('register')
-  async register(@Body() registerDto: RegisterDto) {
-    return await this.authService.register(registerDto);
-  }
-
-  @Public()
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
-    return await this.authService.login(loginDto);
-  }
-
-  @Public()
+  @Roles()
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string) {
     return await this.authService.verifyEmail(token);
   }
 
-  @Public()
+  @Roles()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return await this.authService.forgotPassword(forgotPasswordDto);
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getCurrentUser(@Request() req: RequestWithUser) {
+    const user = await this.authService.getCurrentUser(req.user.id);
+    console.log('Get current user:', user); // Add this log
+    return user;
+  }
+
   @Public()
+  @Post('login')
+  async login(@Body() loginDto: LoginDto) {
+    const user = await this.authService.validateUser(loginDto.email, loginDto.password);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const result = await this.authService.login(loginDto);
+    console.log('Login result:', result); // Add this log
+    return result;
+  }
+
+  @Roles()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
@@ -63,37 +77,22 @@ export class AuthController {
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   async changePassword(
-    @Request() req,
-    @Body() changePasswordDto: ChangePasswordDto
+    @Request() req: RequestWithUser,
+    @Body() ResetPasswordDto: ResetPasswordDto
   ) {
-    return await this.authService.changePassword(req.user.id, changePasswordDto);
+    return await this.authService.resetPassword(ResetPasswordDto);
   }
 
-  @Post('refresh-token')
   @Public()
-  @HttpCode(HttpStatus.OK)
-  async refreshToken(@Body('refreshToken') refreshToken: string) {
-    return await this.authService.refreshToken(refreshToken);
+  @Post('register')
+  async register(@Body() registerDto: RegisterDto) {
+    return await this.authService.register(registerDto);
   }
 
-  @Get('me')
-  async getCurrentUser(@Request() req) {
-    return req.user;
-  }
-
-  // Admin only endpoints example
-  @Get('users')
-  @Roles(UserRole.ADMIN)
-  async getUsers() {
-    // This endpoint would typically be in a UserController
-    // Added here as an example of role-based access
-    return { message: 'Only admins can see this' };
-  }
-
-  // Response interceptor for removing sensitive data
-  @UseInterceptors(UserResponseInterceptor)
-  @Get('profile')
-  async getProfile(@Request() req) {
-    return req.user;
-  }
+  // @Post('refresh-token')
+  // @Public()
+  // @HttpCode(HttpStatus.OK)
+  // async refreshToken(@Body('refreshToken') refreshToken: string) {
+  //   return await this.authService.refreshToken(refreshToken);
+  // }
 }

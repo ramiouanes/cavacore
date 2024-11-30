@@ -6,7 +6,7 @@ export const Header = () => {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="text-xl font-bold text-primary-dark">
-            Hiplando
+            cavacore
           </Link>
           <nav className="flex gap-4">
             <Link 

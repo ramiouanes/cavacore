@@ -6,25 +6,31 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { User } from '../users/entities/user.entity';
+import { UserEntity } from '../users/entities/user.entity';
 import { EmailModule } from '../shared/email/email.module';
 import { CacheModule } from '../shared/cache/cache.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([UserEntity]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('app.jwt.secret'),
-        signOptions: {
-          expiresIn: configService.get<string>('app.jwt.expiresIn'),
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const secret = configService.get('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET is not defined in the environment variables');
+        }
+        return {
+          secret: secret,
+          signOptions: { expiresIn: '1h' },
+        };
+      },
       inject: [ConfigService],
     }),
+    ConfigModule,
     EmailModule,
     CacheModule,
   ],
@@ -33,11 +39,13 @@ import { CacheModule } from '../shared/cache/cache.module';
     AuthService,
     JwtStrategy,
     RolesGuard,
+    RolesGuard,
+    JwtAuthGuard,
     {
       provide: 'APP_GUARD',
       useClass: RolesGuard,
     },
   ],
-  exports: [AuthService],
+  exports: [AuthService, JwtAuthGuard],
 })
 export class AuthModule {}

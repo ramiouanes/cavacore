@@ -1,96 +1,154 @@
 import { ReactNode } from 'react';
 import {
   Card,
-  CardContent,
+  // CardContent,
   CardDescription,
-  CardFooter,
-  CardHeader,
+  // CardFooter,
+  // CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+// import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+
 
 interface FormStepProps {
-  title: string;
-  description: string;
   currentStep: number;
   totalSteps: number;
+  title: string;
+  description: string;
   isValid?: boolean;
   onNext?: () => void;
   onPrev?: () => void;
-  children: ReactNode;
+  onCancel?: () => void;
+  children: React.ReactNode;
 }
 
-interface FormFieldProps {
+export interface FormFieldProps {
   label: string;
   required?: boolean;
   error?: string;
-  children: ReactNode;
+  description?: string;
+  children: React.ReactNode;
 }
 
-export const FormField = ({ label, required, error, children }: FormFieldProps) => {
+export const FormField: React.FC<FormFieldProps> = ({
+  label,
+  required,
+  error,
+  description,
+  children
+}) => {
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">
+      <div className="flex justify-between">
+        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-destructive ml-1">*</span>}
         </label>
       </div>
+      {description && (
+        <p className="text-sm text-muted-foreground">
+          {description}
+        </p>
+      )}
       {children}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
     </div>
   );
 };
 
+
 export const FormStep = ({
-  title,
-  description,
   currentStep,
   totalSteps,
+  title,
+  description,
   isValid = true,
   onNext,
   onPrev,
-  children,
+  onCancel,
+  children
 }: FormStepProps) => {
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
+    <Card className="max-w-4xl mx-auto">
+      <div className="space-y-6 p-6">
+        {/* Progress Indicator */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <CardTitle className="text-2xl font-light tracking-wide text-primary-dark">
+                {title}
+              </CardTitle>
+              <CardDescription className="mt-2 text-sm tracking-wide">
+                {description}
+              </CardDescription>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Step {currentStep} of {totalSteps}
+            </div>
           </div>
-          <div className="text-sm text-gray-500">
-            Step {currentStep} of {totalSteps}
+
+          <div className="grid grid-cols-5 gap-2">
+            {Array.from({ length: totalSteps }).map((_, index) => (
+              <motion.div
+                key={index}
+                className="h-2 rounded-full bg-primary/20"
+                initial={false}
+                animate={{
+                  backgroundColor: index === currentStep - 1
+                    ? 'rgb(var(--primary))'
+                    : index < currentStep - 1
+                      ? 'rgb(var(--primary)/0.8)'
+                      : 'rgb(var(--primary)/0.2)'
+                }}
+              />
+            ))}
           </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="space-y-6">
         {children}
-      </CardContent>
 
-      <CardFooter className="flex justify-between pt-6 border-t">
-        <Button
-          variant="outline"
-          onClick={onPrev}
-          disabled={currentStep === 1}
-          className="flex items-center"
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Previous
-        </Button>
-        
-        <Button
-          onClick={onNext}
-          disabled={!isValid || currentStep === totalSteps}
-          className="flex items-center"
-        >
-          {currentStep === totalSteps ? 'Submit' : 'Next'}
-          {currentStep !== totalSteps && <ChevronRight className="w-4 h-4 ml-2" />}
-        </Button>
-      </CardFooter>
+        <div className="flex justify-between items-center mt-8">
+        <div className="flex gap-4">
+          {currentStep === 1 ? (
+            <Button 
+              variant="ghost" 
+              onClick={onCancel}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              Cancel
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onPrev}>
+                Previous
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={onCancel}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                Cancel
+              </Button>
+            </>
+          )}
+        </div>
+
+            {onNext && (
+              <Button
+                onClick={onNext}
+                disabled={!isValid}
+                className={currentStep === totalSteps ? 'font-medium text-secondary' : 'font-medium text-secondary'}
+              >
+                {currentStep === totalSteps ? 'Complete' : 'Continue'}
+              </Button>
+            )}
+          </div>
+        </div>
     </Card>
   );
+
 };

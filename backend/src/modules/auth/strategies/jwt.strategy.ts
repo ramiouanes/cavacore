@@ -4,7 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 
 interface JwtPayload {
   sub: string;
@@ -18,34 +18,22 @@ interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.get<string>('app.jwt.secret'),
+      secretOrKey: process.env.JWT_SECRET,
       ignoreExpiration: false,
     });
   }
 
-  async validate(payload: JwtPayload) {
-    const user = await this.userRepository.findOne({
-      where: { id: payload.sub },
-      select: ['id', 'email', 'role', 'verificationStatus']
-    });
-
+  async validate(payload: any) {
+    const user = await this.userRepository.findOne({ where: { id: payload.sub } });
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException();
     }
-
-    if (user.verificationStatus !== 'verified') {
-      throw new UnauthorizedException('Account not verified');
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role
-    };
+    console.log('JWT Strategy validate:', { id: user.id, email: user.email, role: user.role }); // Add this log
+    return { id: user.id, email: user.email, role: user.role };
   }
 }

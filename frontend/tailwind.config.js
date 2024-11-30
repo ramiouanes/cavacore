@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
+
+
 module.exports = {
+
   darkMode: ["class"],
   content: [
     './pages/**/*.{ts,tsx}',
@@ -12,23 +15,46 @@ module.exports = {
   	container: {
   		center: 'true',
   		padding: '2rem',
+		width: 'w-full',
   		screens: {
-  			'2xl': '1400px'
+  			'2xl': '1400px',
+			'xs': '375px'
   		}
   	},
   	extend: {
+		backgroundImage: {
+			'hero': "url('/home_hero_img.jpg')",
+		  },
+		fontFamily: {
+			sans: ['Inter var', 'sans-serif'],
+			display: ['Clash Display', 'sans-serif'], // For headings
+		  },
+		  spacing: {
+			'safe-top': 'env(safe-area-inset-top)',
+			'safe-bottom': 'env(safe-area-inset-bottom)',
+			'safe-left': 'env(safe-area-inset-left)',
+			'safe-right': 'env(safe-area-inset-right)',
+		  },
+		  boxShadow: {
+			'soft': '0 4px 20px rgba(0, 0, 0, 0.05)',
+		  },		
   		colors: {
-  			'primary-dark': '#0f603f',
-  			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
-  			},
-  			'primary-light': '#1a9562',
-  			border: 'hsl(var(--border))',
-  			input: 'hsl(var(--input))',
-  			ring: 'hsl(var(--ring))',
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
+			// 'primary-dark': '#5b5545',
+			'primary': '#875f45',
+			'primary-light': '#c9bca9',
+			'background': {
+				DEFAULT: '#f8f7f4',
+				subtle: '#e2ded2',
+			},
+			'accent': {
+				DEFAULT: '#c5b7a3',
+				dark: '#8c7355',
+			},
+			border: 'hsl(var(--border))',
+			input: 'hsl(var(--input))',
+			ring: 'hsl(var(--ring))',
+			foreground: 'hsl(var(--foreground))',
+			// 'text': '#2f2e2c',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
@@ -61,6 +87,17 @@ module.exports = {
   				'5': 'hsl(var(--chart-5))'
   			}
   		},
+		  buttonVariants: {
+			variants: {
+			  default: "bg-background text-primary-light hover:bg-background/90",
+			  primary: "bg-primary text-primary-light hover:bg-primary/90",
+			  outline: "border border-primary text-primary hover:bg-primary/10",
+			  ghost: "text-primary hover:bg-primary/10 hover:text-primary-dark",
+			  link: "text-primary hover:text-primary-dark underline-offset-4 hover:underline",
+			  destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+			  secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+			}
+		  },
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',

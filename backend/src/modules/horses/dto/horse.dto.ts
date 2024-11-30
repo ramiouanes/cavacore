@@ -1,104 +1,113 @@
-import { IsString, IsOptional, IsUUID, IsNumber, IsArray, IsDate, IsEnum, IsObject, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+// backend/src/modules/horses/dto/horse.dto.ts
 
+import { 
+  IsString,
+  IsOptional,
+} from 'class-validator';
 
-export enum HorseStatus {
-  ACTIVE = 'active',
-  SOLD = 'sold',
-  ARCHIVED = 'archived',
-  DRAFT = 'draft'
-}
-
+// We'll create a simplified DTO for the multipart form data
 export class CreateHorseDto {
   @IsString()
+  basicInfo!: string; // Will be stringified JSON
+
+  @IsString()
+  media!: string; // Will be stringified JSON
+
+  @IsString()
+  performance!: string; // Will be stringified JSON
+
+  @IsString()
+  health!: string; // Will be stringified JSON
+
+  @IsString()
+  lineage!: string; // Will be stringified JSON
+}
+
+// Create separate interfaces for the parsed data
+export interface HorseBasicInfo {
   name: string;
-
-  @IsString()
   breed: string;
+  dateOfBirth: Date;
+  gender: string;
+  height: number;
+  color: string;
+}
 
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  dateOfBirth?: Date;
+export interface HorseMedia {
+  type: 'image' | 'video';
+  caption?: string;
+  isMain: boolean;
+}
 
-  @IsOptional()
-  @IsString()
-  gender?: string;
+export interface HorsePerformance {
+  disciplines: string[];
+  currentLevel: string;
+  trainingHistory: string;
+  achievements: Array<{
+    id: string;
+    title: string;
+    date: Date;
+    description: string;
+  }>;
+}
 
-  @IsOptional()
-  @IsNumber()
-  height?: number;
+export interface HorseHealth {
+  generalHealth: string;
+  vaccinations: Array<{
+    id: string;
+    type: string;
+    date: Date;
+    nextDueDate: Date;
+    notes?: string;
+  }>;
+  medicalRecords: Array<{
+    id: string;
+    date: Date;
+    type: string;
+    description: string;
+    veterinarian: string;
+  }>;
+  vetRecords: Array<{
+    id: string;
+    date: Date;
+    type: string;
+    description: string;
+    files: Array<{
+      url?: string;
+      originalName: string;
+    }>;
+  }>;
+  insuranceInfo?: string;
+  specialCare?: string;
+}
 
-  @IsOptional()
-  @IsString()
-  color?: string;
-
-  @IsOptional()
-  @IsArray()
-  discipline?: string[];
-
-  @IsOptional()
-  @IsObject()
-  priceRange?: {
-    min: number;
-    max: number;
-    currency: string;
+export interface HorseLineage {
+  registrationNumber: string;
+  passportNumber?: string;
+  sire: {
+    id: string;
+    name: string;
+    breed: string;
+    achievements?: string;
+    notes?: string;
   };
+  dam: {
+    id: string;
+    name: string;
+    breed: string;
+    achievements?: string;
+    notes?: string;
+  };
+  breedingHistory?: string;
+  bloodlineNotes?: string;
 }
 
-export class UpdateHorseDto extends CreateHorseDto {
-  @IsOptional()
-  @IsEnum(HorseStatus)
-  status?: HorseStatus;
+export interface ParsedHorseData {
+  basicInfo: HorseBasicInfo;
+  media: HorseMedia[];
+  performance: HorsePerformance;
+  health: HorseHealth;
+  lineage: HorseLineage;
 }
 
-export class HorseFilterDto {
-  @IsOptional()
-  @IsString()
-  search?: string;
-
-  @IsOptional()
-  @IsArray()
-  breeds?: string[];
-
-  @IsOptional()
-  @IsArray()
-  disciplines?: string[];
-
-  @IsOptional()
-  @IsNumber()
-  minHeight?: number;
-
-  @IsOptional()
-  @IsNumber()
-  maxHeight?: number;
-
-  @IsOptional()
-  @IsNumber()
-  minPrice?: number;
-
-  @IsOptional()
-  @IsNumber()
-  maxPrice?: number;
-
-  @IsOptional()
-  @IsString()
-  location?: string;
-
-  @IsOptional()
-  @IsEnum(HorseStatus)
-  status?: HorseStatus;
-  
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Type(() => Number)
-  page?: number = 1;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(100)
-  @Type(() => Number)
-  limit?: number = 20;
-}
+export class UpdateHorseDto extends CreateHorseDto {}

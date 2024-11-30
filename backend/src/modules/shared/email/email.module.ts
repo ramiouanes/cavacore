@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { EmailService } from './email.service';
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import{ Redis } from 'ioredis';
 
 @Module({
   providers: [EmailService],
@@ -7,20 +10,16 @@ import { EmailService } from './email.service';
 })
 export class EmailModule {}
 
-// src/modules/shared/cache/cache.service.ts
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as Redis from 'ioredis';
 
 @Injectable()
 export class CacheService {
-  private readonly redis: Redis.Redis;
+  private readonly redis: Redis;
 
   constructor(private readonly configService: ConfigService) {
     this.redis = new Redis({
-      host: this.configService.get('app.redis.host'),
-      port: this.configService.get('app.redis.port'),
-      password: this.configService.get('app.redis.password'),
+      host: this.configService.get('redis.host'),
+      port: this.configService.get('redis.port'),
+      password: this.configService.get('redis.password'),
     });
   }
 

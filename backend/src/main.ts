@@ -1,46 +1,83 @@
 import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { join } from 'path';
+import fastifyStatic from '@fastify/static';
 import fastifyMultipart from '@fastify/multipart';
+import type { FastifyPluginCallback } from 'fastify';
+import { FileLogger } from './utils/logger';
+
 
 async function bootstrap() {
+
+  const projectRoot = join(__dirname, '..');
+  const uploadsPath = join(projectRoot, '..', 'uploads');
+  const thumbnailsPath = join(uploadsPath, 'thumbnails');
+
+  const logger = FileLogger.getInstance();
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    new FastifyAdapter()
   );
+
   
-  const configService = app.get(ConfigService);
+  // Get typed fastify instance
+  const fastifyInstance = app.getHttpAdapter().getInstance();
+
+  // Add logging for multipart configuration
+  logger.log('Configuring multipart handling...');
+
+  // Register multipart with type assertion
+  await fastifyInstance.register(fastifyMultipart as any, {
+    limits: {
+      fieldSize: 5 * 1024 * 1024,
+      fileSize: 5 * 1024 * 1024,
+      files: 10,
+      fields: 10
+    },
+    attachFieldsToBody: false,
+    throwFileSizeLimit: true,
+    onFile: (file: any) => {
+      console.log('Received file:', file.fieldname, file.filename);
+    }
+  });
+
+  // Register static file serving
+  await (fastifyInstance as any).register(fastifyStatic, {
+    root: uploadsPath,
+    prefix: '/uploads/',
+    decorateReply: false,
+    list: true,
+  });
+
   
-  // Configure multipart/form-data support
-  await app.register(fastifyMultipart);
-  
-  // Global pipes
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-  
-  // CORS
+  // Enable CORS
   app.enableCors({
-    origin: configService.get('app.cors.origins'),
+    // origin: ['http://localhost:5173', 'http://192.168.100.63:5173'],
+    origin: true,
     credentials: true,
   });
+
+  app.setGlobalPrefix('api'); 
+
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
+
+
+  // Listen on all interfaces
+  await app.listen(3000, '0.0.0.0');
   
-  // API prefix
-  const apiPrefix = configService.get('app.api.prefix');
-  const apiVersion = configService.get('app.api.version');
-  app.setGlobalPrefix(`${apiPrefix}/${apiVersion}`);
-  
-  const port = configService.get('app.port');
-  await app.listen(port, '0.0.0.0');
-  
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  console.log(`Application is running on: http://localhost:3000`);
 }
-
 bootstrap();
-

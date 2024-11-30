@@ -1,20 +1,17 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { CreateHorsePage } from '@/pages/horses/create';
-import { MainLayout } from '@/layouts/main-layout';
 
-export const App = () => {
+import { RouterProvider } from 'react-router-dom';
+import { router } from './router';
+import { DataProvider } from './providers/DataProvider';
+import { AuthProvider } from '@/features/auth/contexts/auth-context';
+
+export function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<div>Home Page</div>} />
-          <Route path="horses">
-            <Route index element={<div>Horses List</div>} />
-            <Route path="create" element={<CreateHorsePage />} />
-            <Route path=":id" element={<div>Horse Details</div>} />
-          </Route>
-        </Route>
-      </Routes>
-    </Router>
+    <DataProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </DataProvider>
   );
-};
+}
+
+export default App;

@@ -1,35 +1,35 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+export interface FormFieldProps {
+  label: string;
+  required?: boolean;
+  error?: string;
+  description?: string; // Add this line
+  children: React.ReactNode;
 }
 
-export default App
+export const FormField: React.FC<FormFieldProps> = ({
+  label,
+  required,
+  error,
+  description, // Add this line
+  children
+}) => {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between">
+        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+          {label}
+          {required && <span className="text-destructive ml-1">*</span>}
+        </label>
+      </div>
+      {description && ( // Add this block
+        <p className="text-sm text-muted-foreground">
+          {description}
+        </p>
+      )}
+      {children}
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
+    </div>
+  );
+};

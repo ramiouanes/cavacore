@@ -12,7 +12,7 @@ export const getDatabaseConfig = (configService: ConfigService): TypeOrmModuleOp
   schema: configService.get('app.database.schema'),
   entities: [join(__dirname, '../**/*.entity{.ts,.js}')],
   migrations: [join(__dirname, '../migrations/*{.ts,.js}')],
-  synchronize: configService.get('app.env') === 'development',
+  synchronize: false, //configService.get('app.env') === 'development',
   logging: configService.get('app.env') === 'development',
   ssl: configService.get('app.env') === 'production',
   autoLoadEntities: true,
