@@ -1,322 +1,187 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  CreateDateColumn,
-  UpdateDateColumn,
-  JoinColumn,
-  Index,
-  Check,
-  OneToMany
-} from 'typeorm';
-import { Horse } from '../../horses/entities/horse.entity';
-import { UserEntity } from '../../users/entities/user.entity';
-import { TimelineEventType } from '../interfaces/timeline.interface';
-import { DealDocument } from '../dto/deal.dto';
+// src/features/deals/components/forms/stage-transition-form.tsx
 
-export enum DealType {
-  FULL_SALE = 'Full Sale',
-  LEASE = 'Lease',
-  PARTNERSHIP = 'Partnership',
-  BREEDING = 'Breeding',
-  TRAINING = 'Training'
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { AlertCircle, CheckCircle2, XCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { DealStage, DealType, StageRequirement } from '../../types/deal.types';
+import { dealTypeUtils } from '../../utils/deal-type-utils';
+import { useToast } from '@/hooks/use-toast';
+import { dealService } from '../../services/deal-service';
+import { StageRequirementsChecklist } from './stage-requirements-checklist';
+import { Timeline } from '../common/timeline';
+
+interface StageTransitionFormProps {
+  currentStage: DealStage;
+  targetStage: DealStage;
+  dealType: DealType;
+  dealId: string;
+  requirements: StageRequirement[];
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  validationErrors?: string[];
+  warnings?: string[];
 }
 
-export enum DealStage {
-  INITIATION = 'Initiation',
-  DISCUSSION = 'Discussion',
-  EVALUATION = 'Evaluation',
-  DOCUMENTATION = 'Documentation',
-  CLOSING = 'Closing',
-  COMPLETE = 'Complete'
-}
+export function StageTransitionForm({
+  currentStage,
+  targetStage,
+  dealType,
+  dealId,
+  requirements,
+  onConfirm,
+  onCancel,
+  validationErrors = [],
+  warnings = []
+}: StageTransitionFormProps) {
+  const [reason, setReason] = useState('');
+  const [showDialog, setShowDialog] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const [stageMetrics, setStageMetrics] = useState<any>(null);
 
-export enum DealStatus {
-  ACTIVE = 'Active',
-  PENDING = 'Pending',
-  ON_HOLD = 'On Hold',
-  CANCELLED = 'Cancelled',
-  COMPLETED = 'Completed',
-  INACTIVE = 'Inactive'
-}
-
-export enum ParticipantRole {
-  SELLER = 'Seller',
-  BUYER = 'Buyer',
-  AGENT = 'Agent',
-  VETERINARIAN = 'Veterinarian',
-  TRAINER = 'Trainer',
-  INSPECTOR = 'Inspector',
-  TRANSPORTER = 'Transporter'
-}
-
-@Entity('deals')
-@Check(`"stage" = 'Complete' AND "status" = 'Completed' OR "stage" != 'Complete'`)
-export class Deal {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
-  @Column('enum', { enum: DealType })
-  @Index()
-  type!: DealType;
-
-  @Column('enum', { enum: DealStage, default: DealStage.INITIATION })
-  @Index()
-  stage!: DealStage;
-
-  @Column('enum', { enum: DealStatus, default: DealStatus.ACTIVE })
-  @Index()
-  status!: DealStatus;
-
-  @Column('jsonb')
-  basicInfo!: {
-    horseId: string;
-    tags?: string[];
-    notes?: string;
-  };
-
-  @Column('jsonb')
-  terms!: {
-    price?: number;
-    currency?: string;
-    duration?: number;
-    startDate?: string;
-    endDate?: string;
-    conditions: string[];
-    specialTerms?: string;
-  };
-
-  @Column('jsonb')
-  participants!: Array<{
-    id: string;
-    userId: string;
-    role: ParticipantRole;
-    permissions: string[];
-    dateAdded: Date;
-    status: 'active' | 'inactive';
-    metadata?: {
-      title?: string;
-      company?: string;
-      license?: string;
-      notes?: string;
-      [key: string]: any;
+  useEffect(() => {
+    const loadMetrics = async () => {
+      try {
+        const validation = await dealService.validateStage(dealId, targetStage);
+        const nextStage = dealTypeUtils.getConfig(dealType).stages[
+          dealTypeUtils.getConfig(dealType).stages.indexOf(currentStage) + 1
+        ];
+        setStageMetrics({
+          nextStage,
+          progress: validation.progress,
+          canProgress: validation.canProgress,
+          requirements: validation.missingRequirements
+        });
+      } catch (error) {
+        console.error('Error loading stage metrics:', error);
+      }
     };
-  }>;
+    loadMetrics();
+  }, [dealId, currentStage, targetStage, dealType]);
 
-  @Column('jsonb')
-  documents!: DealDocument[];
+  const handleConfirm = async () => {
+    try {
+      setIsLoading(true);
+      const validation = await dealService.validateStage(dealId, targetStage);
 
-  @Column('jsonb')
-  logistics?: {
-    transportation?: {
-      pickupLocation: string;
-      deliveryLocation: string;
-      date: string;
-      provider?: string;
-      requirements: string[];
-      status: 'pending' | 'scheduled' | 'completed';
-      cost?: number;
-    };
-    inspection?: {
-      date: string;
-      location: string;
-      inspector: string;
-      requirements: string[];
-      status: 'pending' | 'scheduled' | 'completed';
-      results?: string;
-      cost?: number;
-    };
-    insurance?: {
-      provider: string;
-      coverage: string;
-      policyNumber: string;
-      startDate: string;
-      endDate: string;
-      cost: number;
-      status: 'pending' | 'active' | 'expired';
-    };
-  };
+      if (!validation.canProgress && !window.confirm('Requirements not met. Continue anyway?')) {
+        return;
+      }
 
-  @Column('jsonb')
-  timeline!: Array<{
-    id: string;
-    type: TimelineEventType;
-    stage: DealStage;
-    status: DealStatus;
-    date: Date;
-    description: string;
-    actor: string;
-    metadata?: {
-      previousStage?: DealStage;
-      newStage?: DealStage;
-      previousStatus?: DealStatus;
-      newStatus?: DealStatus;
-      reason?: string;
-      automatic?: boolean;
-      documentId?: string;
-      participantId?: string;
-      [key: string]: any;
-    };
-  }>;
-
-  @Column('jsonb', { nullable: true })
-  stageRequirements!: {
-    [key in DealStage]?: {
-      documents: Array<{
-        type: string;
-        required: boolean;
-        status?: 'pending' | 'approved' | 'rejected';
-      }>;
-      participants: Array<{
-        role: ParticipantRole;
-        required: boolean;
-        assigned?: string;
-      }>;
-      conditions: Array<{
-        type: string;
-        description: string;
-        met: boolean;
-      }>;
-    };
-  };
-
-  @Column('jsonb', { nullable: true })
-  validationResults?: {
-    lastChecked: Date;
-    stage: DealStage;
-    isValid: boolean;
-    errors: Array<{
-      code: string;
-      message: string;
-      severity: 'error' | 'warning';
-      field?: string;
-    }>;
-    missingRequirements: string[];
-    warnings: string[];
-  };
-
-  @ManyToOne(() => Horse)
-  @JoinColumn({ name: 'horseId' })
-  horse!: Horse;
-
-  @Column()
-  @Index()
-  horseId!: string;
-
-  @ManyToOne(() => UserEntity)
-  @JoinColumn({ name: 'createdById' })
-  createdBy!: UserEntity;
-
-  @Column()
-  @Index()
-  createdById!: string;
-
-  @Column('jsonb', { nullable: true })
-  metadata?: {
-    priority?: 'low' | 'medium' | 'high';
-    expectedClosingDate?: string;
-    customFields?: Record<string, any>;
-    automationSettings?: {
-      autoUpdateStatus: boolean;
-      notifyParticipants: boolean;
-      reminderEnabled: boolean;
-    };
-    [key: string]: any;
-  };
-
-  @CreateDateColumn()
-  createdAt!: Date;
-
-  @UpdateDateColumn()
-  updatedAt!: Date;
-
-  constructor(partial: Partial<Deal> = {}) {
-    Object.assign(this, partial);
-  }
-
-  // Helper methods
-  canTransitionTo(targetStage: DealStage): boolean {
-    const stageOrder = [
-      DealStage.INITIATION,
-      DealStage.DISCUSSION,
-      DealStage.EVALUATION,
-      DealStage.DOCUMENTATION,
-      DealStage.CLOSING,
-      DealStage.COMPLETE
-    ];
-
-    const currentIndex = stageOrder.indexOf(this.stage);
-    const targetIndex = stageOrder.indexOf(targetStage);
-
-    // Only allow moving one step forward or backward
-    return Math.abs(targetIndex - currentIndex) <= 1;
-  }
-
-  canChangeStatusTo(targetStatus: DealStatus): boolean {
-    const allowedTransitions: Record<DealStatus, DealStatus[]> = {
-      [DealStatus.ACTIVE]: [DealStatus.ON_HOLD, DealStatus.CANCELLED, DealStatus.COMPLETED],
-      [DealStatus.ON_HOLD]: [DealStatus.ACTIVE, DealStatus.CANCELLED],
-      [DealStatus.CANCELLED]: [],
-      [DealStatus.COMPLETED]: [],
-      [DealStatus.INACTIVE]: [],
-      [DealStatus.PENDING]: [DealStatus.ACTIVE, DealStatus.CANCELLED]
-    };
-
-    return allowedTransitions[this.status]?.includes(targetStatus) || false;
-  }
-
-  hasMetRequirements(stage: DealStage): boolean {
-    const requirements = this.stageRequirements[stage];
-    if (!requirements) return true;
-
-    // Check documents
-    const hasRequiredDocs = requirements.documents
-      .filter(doc => doc.required)
-      .every(doc =>
-        this.documents.some(d =>
-          d.type === doc.type &&
-          d.status === 'approved'
-        )
-      );
-
-    // Check participants
-    const hasRequiredParticipants = requirements.participants
-      .filter(p => p.required)
-      .every(p =>
-        this.participants.some(participant =>
-          participant.role === p.role &&
-          participant.status === 'active'
-        )
-      );
-
-    // Check conditions
-    const hasMetConditions = requirements.conditions
-      .every(condition => condition.met);
-
-    return hasRequiredDocs && hasRequiredParticipants && hasMetConditions;
-  }
-
-  getRequiredParticipants(): ParticipantRole[] {
-    switch (this.type) {
-      case DealType.FULL_SALE:
-        return [ParticipantRole.SELLER, ParticipantRole.BUYER];
-      case DealType.LEASE:
-        return [ParticipantRole.SELLER, ParticipantRole.BUYER];
-      case DealType.PARTNERSHIP:
-        return [ParticipantRole.SELLER, ParticipantRole.BUYER];
-      case DealType.BREEDING:
-        return [ParticipantRole.SELLER, ParticipantRole.VETERINARIAN];
-      case DealType.TRAINING:
-        return [ParticipantRole.SELLER, ParticipantRole.TRAINER];
-      default:
-        return [ParticipantRole.SELLER, ParticipantRole.BUYER];
+      await dealService.updateStage(dealId, targetStage);
+      toast({
+        title: "Stage Updated",
+        description: `Successfully transitioned to ${targetStage}`,
+      });
+      onConfirm(reason);
+      setShowDialog(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update stage",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
-  getMissingParticipants(): ParticipantRole[] {
-    const required = new Set(this.getRequiredParticipants());
-    const current = new Set(this.participants.map(p => p.role));
-    return Array.from(required).filter(role => !current.has(role));
-  }
+  return (
+    <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
+      <AlertDialogContent className="max-w-2xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            Stage Transition
+            <Badge variant="outline" className="ml-2">
+              {currentStage} <ArrowRight className="w-4 h-4 mx-1" /> {targetStage}
+            </Badge>
+          </AlertDialogTitle>
+          <AlertDialogDescription className="space-y-4">
+            {/* Stage Metrics */}
+            {stageMetrics && (
+              <Card className="p-4">
+                <h4 className="font-medium mb-2">Stage Progress</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Overall Progress</span>
+                    <span>{stageMetrics.progress}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Next Stage</span>
+                    <span>{stageMetrics.nextStage}</span>
+                  </div>
+                  {stageMetrics.requirements.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-sm font-medium">Missing Requirements:</span>
+                      <ul className="list-disc list-inside mt-1">
+                        {stageMetrics.requirements.map((req: string, i: number) => (
+                          <li key={i} className="text-sm text-muted-foreground">{req}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* Requirements Checklist */}
+            <StageRequirementsChecklist
+              stage={targetStage}
+              dealType={dealType}
+              requirements={requirements}
+              completedRequirements={[]}
+            />
+
+            {/* Validation Messages */}
+            {validationErrors.length > 0 && (
+              <Card className="p-4 border-destructive">
+                <h4 className="font-medium text-destructive flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Validation Errors
+                </h4>
+                <ul className="mt-2 space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <li key={index} className="text-sm text-destructive">{error}</li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+
+            {/* Transition Reason */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason for Transition</label>
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Provide a reason for this stage transition..."
+                className="min-h-[100px]"
+              />
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onCancel} disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleConfirm}
+            disabled={!reason.trim() || isLoading}
+            className="gap-2"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Updating Stage...
+              </>
+            ) : (
+              'Confirm Transition'
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }

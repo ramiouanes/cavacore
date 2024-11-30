@@ -1,30 +1,19 @@
-import React, { useState } from 'react';
+// src/features/deals/components/forms/stage-transition-form.tsx
+
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { AlertCircle, CheckCircle2, XCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { DealStage, DealType, StageRequirement } from '../../types/deal.types';
+import { dealTypeUtils } from '../../utils/deal-type-utils';
 import { useToast } from '@/hooks/use-toast';
 import { dealService } from '../../services/deal-service';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  AlertCircle,
-  CheckCircle2,
-  XCircle,
-  ArrowRight,
-  Loader2
-} from 'lucide-react';
-import { DealStage, DealType, StageRequirement } from '../../types/deal.types';
-
+import { StageRequirementsChecklist } from './stage-requirements-checklist';
+import { Timeline } from '../common/timeline';
 
 interface StageTransitionFormProps {
   currentStage: DealStage;
@@ -53,34 +42,44 @@ export function StageTransitionForm({
   const [showDialog, setShowDialog] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [stageMetrics, setStageMetrics] = useState<any>(null);
+
+  useEffect(() => {
+    const loadMetrics = async () => {
+      try {
+        const validation = await dealService.validateStage(dealId, targetStage);
+        const nextStage = dealTypeUtils.getConfig(dealType).stages[
+          dealTypeUtils.getConfig(dealType).stages.indexOf(currentStage) + 1
+        ];
+        setStageMetrics({
+          nextStage,
+          progress: validation.progress,
+          canProgress: validation.canProgress,
+          requirements: validation.missingRequirements
+        });
+      } catch (error) {
+        console.error('Error loading stage metrics:', error);
+      }
+    };
+    loadMetrics();
+  }, [dealId, currentStage, targetStage, dealType]);
 
   const handleConfirm = async () => {
     try {
       setIsLoading(true);
-
-      // First validate the transition
       const validation = await dealService.validateStage(dealId, targetStage);
 
-      if (!validation.canProgress) {
-        toast({
-          title: "Cannot Progress",
-          description: validation.validationErrors.join(', '),
-          variant: "destructive"
-        });
+      if (!validation.canProgress && !window.confirm('Requirements not met. Continue anyway?')) {
         return;
       }
 
-      // If validation passes, attempt to update the stage
       await dealService.updateStage(dealId, targetStage);
-
       toast({
         title: "Stage Updated",
         description: `Successfully transitioned to ${targetStage}`,
       });
-
       onConfirm(reason);
       setShowDialog(false);
-
     } catch (error: any) {
       toast({
         title: "Error",
@@ -90,12 +89,6 @@ export function StageTransitionForm({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const getMissingRequirements = () => {
-    return requirements.filter(req => 
-      validationErrors.some(error => error.toLowerCase().includes(req.description.toLowerCase()))
-    );
   };
 
   return (
@@ -109,29 +102,42 @@ export function StageTransitionForm({
             </Badge>
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-4">
-            <Card className="p-4 space-y-2">
-              <h4 className="font-medium">Stage Requirements</h4>
-              <div className="space-y-2">
-                {requirements.map((req, index) => (
-                  <div key={index} className="flex items-start gap-2">
-                    {!getMissingRequirements().includes(req) ? (
-                      <CheckCircle2 className="w-4 h-4 mt-1 text-green-500" />
-                    ) : (
-                      <XCircle className="w-4 h-4 mt-1 text-destructive" />
-                    )}
-                    <div className="flex-1">
-                      <span className="text-sm">{req.description}</span>
-                      {req.type === 'document' && getMissingRequirements().includes(req) && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Required document missing
-                        </p>
-                      )}
-                    </div>
+            {/* Stage Metrics */}
+            {stageMetrics && (
+              <Card className="p-4">
+                <h4 className="font-medium mb-2">Stage Progress</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Overall Progress</span>
+                    <span>{stageMetrics.progress}%</span>
                   </div>
-                ))}
-              </div>
-            </Card>
+                  <div className="flex justify-between text-sm">
+                    <span>Next Stage</span>
+                    <span>{stageMetrics.nextStage}</span>
+                  </div>
+                  {stageMetrics.requirements.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-sm font-medium">Missing Requirements:</span>
+                      <ul className="list-disc list-inside mt-1">
+                        {stageMetrics.requirements.map((req: string, i: number) => (
+                          <li key={i} className="text-sm text-muted-foreground">{req}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
 
+            {/* Requirements Checklist */}
+            <StageRequirementsChecklist
+              stage={targetStage}
+              dealType={dealType}
+              requirements={requirements}
+              completedRequirements={[]}
+            />
+
+            {/* Validation Messages */}
             {validationErrors.length > 0 && (
               <Card className="p-4 border-destructive">
                 <h4 className="font-medium text-destructive flex items-center gap-2">
@@ -140,34 +146,15 @@ export function StageTransitionForm({
                 </h4>
                 <ul className="mt-2 space-y-1">
                   {validationErrors.map((error, index) => (
-                    <li key={index} className="text-sm text-destructive">
-                      {error}
-                    </li>
+                    <li key={index} className="text-sm text-destructive">{error}</li>
                   ))}
                 </ul>
               </Card>
             )}
 
-            {warnings.length > 0 && (
-              <Card className="p-4 border-yellow-500">
-                <h4 className="font-medium text-yellow-500 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  Warnings
-                </h4>
-                <ul className="mt-2 space-y-1">
-                  {warnings.map((warning, index) => (
-                    <li key={index} className="text-sm text-yellow-500">
-                      {warning}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            )}
-
+            {/* Transition Reason */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Reason for Transition
-              </label>
+              <label className="text-sm font-medium">Reason for Transition</label>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -181,7 +168,7 @@ export function StageTransitionForm({
           <AlertDialogCancel onClick={onCancel} disabled={isLoading}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
-            disabled={validationErrors.length > 0 || !reason.trim() || isLoading}
+            disabled={!reason.trim() || isLoading}
             className="gap-2"
           >
             {isLoading ? (
